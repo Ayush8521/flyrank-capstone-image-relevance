@@ -1,10 +1,20 @@
 const pool = require("../config/db");
 
+const {
+  applyMismatchGuard,
+} = require("./mismatchGuard.service");
+
 async function matchPostWithImages(postId) {
+  // --------------------------------------------------
   // 1. Check that post exists and has an embedding
+  // --------------------------------------------------
   const postResult = await pool.query(
     `
-    SELECT p.id, p.title, p.content, pv.embedding
+    SELECT
+      p.id,
+      p.title,
+      p.content,
+      pv.embedding
     FROM posts p
     JOIN post_vectors pv
       ON p.id = pv.post_id
@@ -19,7 +29,9 @@ async function matchPostWithImages(postId) {
 
   const post = postResult.rows[0];
 
+  // --------------------------------------------------
   // 2. Find similar images using cosine similarity
+  // --------------------------------------------------
   const imageResult = await pool.query(
     `
     SELECT
@@ -29,6 +41,7 @@ async function matchPostWithImages(postId) {
       im.subject,
       im.category,
       im.caption,
+      im.confidence,
       1 - (iv.embedding <=> pv.embedding) AS similarity
     FROM image_vectors iv
     JOIN images i
@@ -43,36 +56,38 @@ async function matchPostWithImages(postId) {
     [postId]
   );
 
-  // 3. Convert similarity into a decision
+  // --------------------------------------------------
+  // 3. Apply similarity + mismatch guard
+  // --------------------------------------------------
   const matches = imageResult.rows.map((image) => {
     const similarity = Number(image.similarity);
 
-    let decision;
-    let explanation;
-
-    if (similarity >= 0.80) {
-      decision = "accepted";
-      explanation =
-        "High semantic similarity between the post and image.";
-    } else if (similarity >= 0.60) {
-      decision = "review";
-      explanation =
-        "Moderate similarity. Manual review is recommended.";
-    } else {
-      decision = "rejected";
-      explanation =
-        "Low semantic similarity between the post and image.";
-    }
+    const guardResult = applyMismatchGuard({
+      post,
+      image,
+      similarity,
+    });
 
     return {
       ...image,
+
       similarity: Number(similarity.toFixed(5)),
-      decision,
-      explanation,
+
+      decision: guardResult.decision,
+
+      explanation: guardResult.explanation,
+
+      guard: guardResult.guard,
+
+      expected_subject: guardResult.expectedSubject,
+
+      detected_subject: guardResult.detectedSubject,
     };
   });
 
+  // --------------------------------------------------
   // 4. Save suggestions
+  // --------------------------------------------------
   for (const match of matches) {
     await pool.query(
       `
@@ -103,17 +118,85 @@ async function matchPostWithImages(postId) {
     );
   }
 
+  // --------------------------------------------------
+  // 5. Check if there is any confident match
+  // --------------------------------------------------
+  const acceptedMatches = matches.filter(
+    (match) => match.decision === "accepted"
+  );
+
+  const reviewMatches = matches.filter(
+    (match) => match.decision === "review"
+  );
+
+  // --------------------------------------------------
+  // 6. Return "no confident match" when appropriate
+  // --------------------------------------------------
+  if (
+    acceptedMatches.length === 0 &&
+    reviewMatches.length === 0
+  ) {
+    return {
+      post: {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+      },
+
+      message: "no confident match",
+
+      matches: matches.map((match) => ({
+        image_id: match.image_id,
+        filename: match.filename,
+        similarity: match.similarity,
+        decision: match.decision,
+        explanation: match.explanation,
+        guard: match.guard,
+      })),
+    };
+  }
+
+  // --------------------------------------------------
+  // 7. Return normal matching result
+  // --------------------------------------------------
   return {
     post: {
       id: post.id,
       title: post.title,
       content: post.content,
     },
+
+    message: "Image matching completed",
+
     matches,
   };
 }
 
+
+// ======================================================
+// Get previously generated suggestions for a post
+// ======================================================
+
 async function getSuggestionsForPost(postId) {
+  // --------------------------------------------------
+  // Check that the post exists
+  // --------------------------------------------------
+  const postResult = await pool.query(
+    `
+    SELECT id
+    FROM posts
+    WHERE id = $1
+    `,
+    [postId]
+  );
+
+  if (postResult.rows.length === 0) {
+    throw new Error("Post not found");
+  }
+
+  // --------------------------------------------------
+  // Get suggestions
+  // --------------------------------------------------
   const result = await pool.query(
     `
     SELECT
@@ -143,6 +226,7 @@ async function getSuggestionsForPost(postId) {
     suggestions: result.rows,
   };
 }
+
 
 module.exports = {
   matchPostWithImages,
