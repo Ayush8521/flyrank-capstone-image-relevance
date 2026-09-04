@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const pool = require("./config/db");
+const imageRoutes = require("./routes/images");
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.get("/health", async (req, res) => {
   }
 });
 
+app.use("/api/images", imageRoutes);
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
