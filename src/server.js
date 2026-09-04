@@ -1,25 +1,41 @@
-const express = require("express");
 require("dotenv").config();
 
+const express = require("express");
+const pool = require("./config/db");
+
 const app = express();
+
+const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    res.json({
-        name: "AI Image Understanding & Content Matching Engine",
-        status: "running"
-    });
+  res.json({
+    name: "AI Image Relevance Engine",
+    version: "1.0.0",
+    status: "running",
+  });
 });
 
-app.get("/health", (req, res) => {
-    res.json({
-        status: "ok"
-    });
-});
+app.get("/health", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
 
-const PORT = process.env.PORT || 5000;
+    res.json({
+      status: "ok",
+      database: "connected",
+      time: result.rows[0].now,
+    });
+  } catch (error) {
+    console.error("Database health check failed:", error);
+
+    res.status(500).json({
+      status: "error",
+      database: "disconnected",
+    });
+  }
+});
 
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
