@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const { imageSchema } = require("../schemas/image.schema");
+const { processImage } = require("../services/image.service");
 
 // CREATE IMAGE
 async function createImage(req, res) {
@@ -68,9 +69,35 @@ async function getImages(req, res) {
     });
   }
 }
+async function processImageController(req, res) {
+  try {
+    const { id } = req.params;
+
+    const result = await processImage(id);
+
+    return res.status(200).json({
+      message: "Image processed successfully",
+      result,
+    });
+    } catch (error) {
+    console.error("Process image error:", error);
+
+    if (error.message === "Image not found") {
+      return res.status(404).json({
+        error: "Image not found",
+      });
+    }
+
+    return res.status(500).json({
+      error: "Image processing failed",
+      details: error.message,
+    });
+  }
+}
 
 
 module.exports = {
   createImage,
   getImages,
+  processImageController,
 };

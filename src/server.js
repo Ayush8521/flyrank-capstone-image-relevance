@@ -3,6 +3,10 @@ require("dotenv").config();
 const express = require("express");
 const pool = require("./config/db");
 const imageRoutes = require("./routes/images");
+const postRoutes = require("./routes/posts");
+const reviewsRouter = require("./routes/reviews");
+const suggestionsRoutes = require("./routes/suggestions");
+const { startImageProcessorJob } = require("./jobs/imageProcessor.job");
 
 const app = express();
 
@@ -38,6 +42,10 @@ app.get("/health", async (req, res) => {
 });
 
 app.use("/api/images", imageRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/reviews", reviewsRouter);
+app.use("/api/suggestions", suggestionsRoutes);
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  startImageProcessorJob();
 });
