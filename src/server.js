@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const pool = require("./config/db");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 const imageRoutes = require("./routes/images");
 const postRoutes = require("./routes/posts");
 const reviewsRouter = require("./routes/reviews");
@@ -40,6 +42,8 @@ app.get("/health", async (req, res) => {
     });
   }
 });
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api/images", imageRoutes);
 app.use("/api/posts", postRoutes);
