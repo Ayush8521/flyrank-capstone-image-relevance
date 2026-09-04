@@ -113,6 +113,38 @@ async function matchPostWithImages(postId) {
   };
 }
 
+async function getSuggestionsForPost(postId) {
+  const result = await pool.query(
+    `
+    SELECT
+      s.id,
+      s.post_id,
+      p.title AS post_title,
+      s.image_id,
+      i.filename,
+      i.image_url,
+      s.similarity,
+      s.decision,
+      s.explanation,
+      s.created_at
+    FROM suggestions s
+    JOIN posts p
+      ON p.id = s.post_id
+    JOIN images i
+      ON i.id = s.image_id
+    WHERE s.post_id = $1
+    ORDER BY s.similarity DESC
+    `,
+    [postId]
+  );
+
+  return {
+    count: result.rows.length,
+    suggestions: result.rows,
+  };
+}
+
 module.exports = {
   matchPostWithImages,
+  getSuggestionsForPost,
 };
