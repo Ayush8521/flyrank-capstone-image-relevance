@@ -1,0 +1,62 @@
+[
+  {
+    "post_id": "a4ef5792-92ca-420c-8781-02ffb650df55",
+    "expected_image_id": "0cab5b46-149a-430e-b471-db14d391b7cb",
+    "label": "Mountain Travel Guide -> mountain.jpg"
+  },
+  {
+    "post_id": "5cc714ca-7dae-4ac9-9a76-5fef992b0a38",
+    "expected_image_id": "b776f993-6789-418d-9e87-f2f6c6ac77f2",
+    "label": "Forest Adventure -> forest.jpg"
+  },
+  {
+    "post_id": "ab0a517b-39b8-477d-bd66-f37f4aadb31d",
+    "expected_image_id": "b776f993-6789-418d-9e87-f2f6c6ac77f2",
+    "label": "Forest Photography -> forest.jpg"
+  },
+  {
+    "post_id": "0d1e5c33-700a-4cc5-8acb-8ee68fa9439a",
+    "expected_image_id": "6a63b9bd-082e-4054-98f2-9c58a0177e66",
+    "label": "Fox Wildlife Photography -> fox.jpg"
+  },
+  {
+    "post_id": "17aa1b99-9baa-4bfa-a595-b23c21b27586",
+    "expected_image_id": "75c4ff07-b96c-460a-8eb9-8dc6eae17c70",
+    "label": "Dog Photography -> dog.jpg"
+  },
+  {
+    "post_id": "e5231be7-3935-4e29-a0e6-b04f77d01478",
+    "expected_image_id": "b8bb7f87-53b0-4bf4-ac9d-0f44906782b3",
+    "label": "Lion Wildlife Photography -> lion.jpg"
+  },
+  {
+    "post_id": "c9502de2-b771-4f95-8e49-863f0fb21ee8",
+    "expected_image_id": "24a57e15-9eba-40ff-b3b7-c3df4fb00c04",
+    "label": "Horse Photography -> horse.jpg"
+  },
+  {
+    "post_id": "1f2fe145-a94e-4af8-871e-1b2d4d7aa274",
+    "expected_image_id": "3c333dbb-22aa-43ad-892b-782845aa1b05",
+    "label": "Bird Photography -> bird.jpg"
+  },
+  {
+    "post_id": "034e2f90-937e-4415-84b5-263c2e829ffa",
+    "expected_image_id": "828d006c-67c9-4d88-a611-9ab0cd90f2c5",
+    "label": "Beach Travel Guide -> beach.jpg"
+  },
+  {
+    "post_id": "c9219d26-9a63-4aef-b8fb-daeb65462d75",
+    "expected_image_id": "fab7e092-8ce2-4f8a-b781-df5e2777b64a",
+    "label": "River Nature Photography -> river.jpg"
+  },
+  {
+    "post_id": "e1fb66b9-4c6f-49d0-b879-e005e7e855dd",
+    "expected_image_id": "70d85789-047d-44c4-9731-4b762284cc3b",
+    "label": "Flower Photography -> flowers.jpg"
+  },
+  {
+    "post_id": "ca613795-c4c7-4510-9a70-5a1d50c26e8a",
+    "expected_image_id": "86a79e2a-eb9f-409a-91bd-5d62891cddbe",
+    "label": "Furniture Photography -> nature.jpg"
+  }
+]
