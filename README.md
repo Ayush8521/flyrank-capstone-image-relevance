@@ -72,15 +72,21 @@ The application:
 - Generate image metadata and embeddings.
 - Track image processing status.
 
-### 3. AI Image Matching
+### 3. AI Image Matching and Mismatch Guard
 
-The matching service uses vector embeddings to calculate semantic similarity between post content and images.
+The matching service compares post embeddings with image embeddings using cosine similarity.
 
-Cosine similarity is calculated as:
+A subject mismatch guard is applied after similarity ranking to prevent semantically incorrect matches from being accepted simply because their embedding similarity is high.
+
+For example:
 
 ```text
-similarity = 1 - cosine_distance
-```
+Post: Red fox wildlife photography
+
+Fox image       -> relevant
+Forest image    -> rejected: subject mismatch
+Dog image       -> rejected: subject mismatch
+Mountain image  -> rejected: subject mismatch
 
 The current decision thresholds are:
 
@@ -118,12 +124,28 @@ Human Reviewer
  ▼        ▼
 Accept   Reject
 ```
+### 5. Automatic Retry and Failure Handling
 
-### 5. Scheduled Image Processing
+Image processing runs through a background job.
+
+The processor supports:
+
+- Maximum of 3 processing attempts.
+- Failed images are automatically retried.
+- Exponential backoff between attempts:
+  - 1st failure → retry after 1 minute
+  - 2nd failure → retry after 2 minutes
+- After the maximum attempts are reached, the image remains `failed`.
+- Gemini rate-limit errors such as HTTP 429 are handled by the retry mechanism.
+- New images remain `pending` until picked up by the scheduled processor.
+
+This prevents temporary AI/API failures from permanently failing image processing.
+
+### 6. Scheduled Image Processing
 
 The project includes a scheduled processing job that can automatically process pending images instead of requiring every image to be processed manually.
 
-### 6. AI Cost Tracking
+### 7. AI Cost Tracking
 
 AI operations are logged in the `ai_cost_logs` table.
 
@@ -135,7 +157,7 @@ Tracked operations include:
 
 Each log records the model, resource ID, estimated cost, and timestamp.
 
-### 7. Swagger API Documentation
+### 8. Swagger API Documentation
 
 Swagger UI is available locally at:
 
