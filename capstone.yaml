@@ -1,0 +1,192 @@
+project:
+name: "AI Image Understanding & Content Matching Engine"
+repository: "https://github.com/Ayush8521/flyrank-capstone-image-relevance"
+status: "in_progress"
+
+description: >
+An AI-powered image understanding and content matching system that analyzes
+images using Gemini Vision, generates structured metadata and embeddings,
+matches images to article content using vector similarity, and applies a
+semantic mismatch guard to reduce incorrect recommendations.
+
+technology:
+backend:
+- "Node.js"
+- "Express.js"
+database:
+- "PostgreSQL"
+- "pgvector"
+ai:
+- "Gemini Vision"
+- "gemini-embedding-001"
+validation:
+- "Zod"
+scheduling:
+- "node-cron"
+documentation:
+- "Swagger"
+
+architecture:
+pipeline:
+- "Image ingestion"
+- "Gemini Vision analysis"
+- "Structured metadata validation"
+- "Image embedding generation"
+- "Post embedding generation"
+- "Vector similarity search"
+- "Semantic mismatch guard"
+- "Accept / Review / Reject decision"
+- "Human review"
+
+features:
+image_understanding:
+status: "implemented"
+capabilities:
+- "Subject detection"
+- "Category classification"
+- "Description generation"
+- "Object extraction"
+- "Attribute extraction"
+- "Confidence scoring"
+- "Safety flag extraction"
+
+structured_validation:
+status: "implemented"
+technology: "Zod"
+
+embeddings:
+status: "implemented"
+model: "gemini-embedding-001"
+dimensions: 1536
+
+semantic_matching:
+status: "implemented"
+similarity_metric: "cosine_similarity"
+thresholds:
+accepted: ">= 0.80"
+review: "0.60 - 0.79"
+rejected: "< 0.60"
+
+mismatch_guard:
+status: "implemented"
+purpose: >
+Prevents semantically incompatible image and post subjects from being
+accepted solely because of high vector similarity.
+example: >
+A fox-related post should not be matched with an incompatible animal
+such as a wolf.
+
+no_confident_match:
+status: "implemented"
+decision: "no_confident_match"
+
+human_review:
+status: "implemented"
+
+background_processing:
+status: "implemented"
+scheduler: "node-cron"
+
+retry_handling:
+status: "implemented"
+max_attempts: 3
+backoff:
+- "1 minute"
+- "2 minutes"
+rate_limit_handling: "Gemini HTTP 429 errors are retried"
+
+ai_cost_tracking:
+status: "implemented"
+operations:
+- "image_vision"
+- "image_embedding"
+- "post_embedding"
+
+api_documentation:
+status: "implemented"
+endpoint: "/docs"
+
+database:
+vector_dimensions: 1536
+vector_index: "HNSW"
+tables:
+- "images"
+- "image_metadata"
+- "image_vectors"
+- "posts"
+- "post_vectors"
+- "suggestions"
+- "reviews"
+- "ai_cost_logs"
+
+evaluation:
+labeled_cases: 12
+top_1_precision: "100.00%"
+correct_top_1: 12
+wrong_top_1: 0
+evaluation_script: "scripts/evaluateMatching.js"
+evaluation_dataset: "eval/eval-set.json"
+
+requirements:
+image_dataset:
+required_images: 40
+current_image_records: 45
+required_categories: 4
+status: "pending_verification"
+note: >
+The database contains 45 image records, but the requirement must be
+verified using AI-processed images with structured metadata and
+embeddings across at least four distinct categories.
+
+evaluation_posts:
+required_posts: 10
+current_labeled_cases: 12
+status: "complete"
+
+mismatch_guard:
+status: "complete"
+
+retry_and_failure_handling:
+status: "complete"
+
+human_review:
+status: "complete"
+
+documentation:
+status: "in_progress"
+artifacts:
+- "README.md"
+- "DESIGN.md"
+- "EVIDENCE.md"
+- "BUILDLOG.md"
+- "capstone.yaml"
+- ".env.example"
+
+artifacts:
+migrations:
+- "migrations/001_initial_schema.sql"
+- "migrations/002_add_image_retry_count.sql"
+- "migrations/003_add_image_retry_time.sql"
+
+evaluation:
+- "eval/eval-set.json"
+- "fox-acceptance-test.json"
+- "scripts/evaluateMatching.js"
+- "scripts/backfillPostEmbeddings.js"
+
+documentation:
+- "README.md"
+- "DESIGN.md"
+- "EVIDENCE.md"
+- "BUILDLOG.md"
+- "capstone.yaml"
+
+current_next_steps:
+
+* "Verify image processing status"
+* "Process enough images to reach at least 40 AI-processed images"
+* "Verify at least four distinct AI-generated categories"
+* "Improve/verify AI cost attribution values"
+* "Run final evaluation"
+* "Capture final evidence"
+* "Perform final repository review"
