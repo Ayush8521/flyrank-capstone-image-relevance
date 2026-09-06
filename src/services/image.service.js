@@ -170,7 +170,13 @@ Attributes: ${visionResult.attributes.join(", ")}
     };
 
   } catch (error) {
-    // Mark image as failed
+    // Let the background processor handle retries
+    // including Gemini rate-limit errors.
+    if (error.message && error.message.includes("Gemini API error: 429")) {
+      throw error;
+    }
+
+    // Mark other processing errors as failed
     await pool.query(
       `
       UPDATE images
