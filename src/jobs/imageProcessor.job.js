@@ -6,6 +6,35 @@ const { processImage } = require("../services/image.service");
 
 const MAX_RETRIES = 3;
 
+// Detect temporary Gemini errors such as 503 or short-term 429
+function isTemporaryGeminiError(error) {
+  const message = error?.message || "";
+
+  return (
+    message.includes("Gemini API error: 503") ||
+    message.includes("status: UNAVAILABLE") ||
+    message.includes("high demand") ||
+    (
+      message.includes("Gemini API error: 429") &&
+      !message.includes("daily quota") &&
+      !message.includes("PerDay") &&
+      !message.includes("FreeTierRequestsPerDay")
+    )
+  );
+}
+
+// Detect daily Gemini quota errors
+function isDailyQuotaError(error) {
+  const message = error?.message || "";
+
+  return (
+    message.includes("daily quota") ||
+    message.includes("PerDay") ||
+    message.includes("per day") ||
+    message.includes("FreeTierRequestsPerDay")
+  );
+}
+
 async function processPendingImages() {
   try {
     // Find new images and failed images whose retry time has arrived
@@ -44,12 +73,17 @@ async function processPendingImages() {
           `Processing image: ${image.filename} (${image.id}) - Attempt ${attempt}/${MAX_RETRIES}`
         );
 
-        // Mark processing and increase attempt count
+        /*
+         * Mark image as processing.
+         *
+         * IMPORTANT:
+         * retry_count is NOT increased here.
+         * Temporary Gemini errors should not consume retries.
+         */
         await pool.query(
           `
           UPDATE images
           SET
-            retry_count = retry_count + 1,
             status = 'processing',
             updated_at = NOW()
           WHERE id = $1
@@ -69,11 +103,48 @@ async function processPendingImages() {
           error.message
         );
 
-        if (attempt < MAX_RETRIES) {
-          // Exponential backoff:
-          // Attempt 1 failure -> 1 minute
-          // Attempt 2 failure -> 2 minutes
-          const delayMinutes = Math.pow(2, attempt - 1);
+        /*
+         * -------------------------------------------------------
+         * CASE 1: DAILY GEMINI QUOTA
+         * -------------------------------------------------------
+         *
+         * Do not retry automatically.
+         * The daily quota will not recover after a short delay.
+         */
+        if (isDailyQuotaError(error)) {
+          await pool.query(
+            `
+            UPDATE images
+            SET
+              status = 'failed',
+              next_retry_at = NULL,
+              updated_at = NOW()
+            WHERE id = $1
+            `,
+            [image.id]
+          );
+
+          console.log(
+            `Daily Gemini quota reached. ${image.filename} will not be retried automatically.`
+          );
+
+          continue;
+        }
+
+        /*
+         * -------------------------------------------------------
+         * CASE 2: TEMPORARY GEMINI ERROR
+         * -------------------------------------------------------
+         *
+         * Examples:
+         * - 503 Service Unavailable
+         * - Gemini high demand
+         * - temporary 429 rate limit
+         *
+         * Do NOT increase retry_count.
+         */
+        if (isTemporaryGeminiError(error)) {
+          const delayMinutes = 2;
 
           await pool.query(
             `
@@ -88,15 +159,48 @@ async function processPendingImages() {
           );
 
           console.log(
-            `Retry scheduled for ${image.filename} in ${delayMinutes} minute(s).`
+            `Temporary Gemini error. ${image.filename} will be retried in ${delayMinutes} minute(s).`
           );
 
-        } else {
-          // Maximum attempts reached
+          continue;
+        }
+
+        /*
+         * -------------------------------------------------------
+         * CASE 3: NORMAL APPLICATION / IMAGE ERROR
+         * -------------------------------------------------------
+         *
+         * These errors consume one retry attempt.
+         */
+        if (image.retry_count + 1 < MAX_RETRIES) {
+          const delayMinutes = Math.pow(2, attempt - 1);
+
           await pool.query(
             `
             UPDATE images
             SET
+              retry_count = retry_count + 1,
+              status = 'failed',
+              next_retry_at = NOW() + ($1 * INTERVAL '1 minute'),
+              updated_at = NOW()
+            WHERE id = $2
+            `,
+            [delayMinutes, image.id]
+          );
+
+          console.log(
+            `Retry scheduled for ${image.filename} in ${delayMinutes} minute(s).`
+          );
+
+        } else {
+          /*
+           * Maximum normal application retries reached.
+           */
+          await pool.query(
+            `
+            UPDATE images
+            SET
+              retry_count = retry_count + 1,
               status = 'failed',
               next_retry_at = NULL,
               updated_at = NOW()
