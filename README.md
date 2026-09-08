@@ -22,37 +22,108 @@ The application:
 ## Architecture
 
 ```text
-                    ┌──────────────────────┐
-                    │      Client/API      │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │   Express.js API     │
-                    └──────────┬───────────┘
-                               │
-             ┌─────────────────┼─────────────────┐
-             │                 │                 │
-             ▼                 ▼                 ▼
-       Posts Service      Images Service    Review Service
-             │                 │                 │
-             ▼                 ▼                 ▼
-       Text Embedding     Gemini Vision      Human Review
-             │             + Embedding             │
-             └────────────────┬────────────────────┘
+## Architecture
+
+```text
+                         ┌──────────────────────┐
+                         │     Client / API     │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │     Express.js API   │
+                         └──────────┬───────────┘
+                                    │
+              ┌─────────────────────┼─────────────────────┐
+              │                     │                     │
+              ▼                     ▼                     ▼
+      ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+      │ Post Service  │     │ Image Service │     │ Review Service│
+      └───────┬───────┘     └───────┬───────┘     └───────┬───────┘
+              │                     │                     │
+              ▼                     │                     ▼
+      ┌────────────────┐            │             ┌───────────────┐
+      │ Embedding      │            │             │ Human Review  │
+      │ Service        │            │             │ Workflow      │
+      └───────┬────────┘            │             └───────────────┘
+              │                     │
+              │              ┌──────┴──────────┐
+              │              │                 │
+              │              ▼                 ▼
+              │      ┌───────────────┐  ┌───────────────┐
+              │      │ Vision Service│  │  Embedding    │
+              │      │ Gemini Vision │  │    Service    │
+              │      └───────┬───────┘  └───────┬───────┘
+              │              │                  │
+              │              ▼                  │
+              │      ┌───────────────┐           │
+              │      │ Zod Validation│           │
+              │      │ Vision Schema │           │
+              │      └───────┬───────┘           │
+              │              │                  │
+              └──────────────┼──────────────────┘
+                             ▼
+                  ┌────────────────────────┐
+                  │      PostgreSQL         │
+                  │        + pgvector       │
+                  │                         │
+                  │ posts                   │
+                  │ images                  │
+                  │ image metadata          │
+                  │ post/image vectors      │
+                  │ suggestions             │
+                  │ reviews                 │
+                  │ AI cost logs            │
+                  └───────────┬────────────┘
+                              │
                               ▼
-                    ┌──────────────────────┐
-                    │ Matching Service     │
-                    │ Cosine Similarity    │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │     PostgreSQL       │
-                    │ posts / images /     │
-                    │ vectors / suggestions│
-                    │ reviews / cost logs  │
-                    └──────────────────────┘
+                  ┌────────────────────────┐
+                  │   Matching Service     │
+                  │   • Cosine Similarity  │
+                  │   • Ranking             │
+                  └───────────┬────────────┘
+                              │
+                              ▼
+                  ┌────────────────────────┐
+                  │     Mismatch Guard     │
+                  │ • Subject Validation   │
+                  │ • Category Validation  │
+                  └───────────┬────────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+                    ▼                   ▼
+             ┌─────────────┐     ┌─────────────┐
+             │ Suggestions │     │    Review   │
+             │ / Decision  │     │    Queue    │
+             └──────┬──────┘     └─────────────┘
+                    │
+                    ▼
+             ┌─────────────┐
+             │   Final     │
+             │   Decision  │
+             └─────────────┘
+
+
+        ┌───────────────────────────────┐
+        │ Background Image Processor    │
+        │ • Batch processing            │
+        │ • Retry handling              │
+        │ • Failure handling             │
+        └───────────────┬───────────────┘
+                        │
+                        ▼
+                  Image Service
+
+
+        ┌───────────────────────────────┐
+        │       Cost / Budget Service   │
+        │ • AI cost logging             │
+        │ • Budget guard                │
+        └───────────────┬───────────────┘
+                        │
+                        ▼
+                  AI Cost Logs
 ```
 
 ## Main Features
@@ -126,18 +197,17 @@ Accept   Reject
 ```
 ### 5. Automatic Retry and Failure Handling
 
-Image processing runs through a background job.
+Image processing runs through a background job with retry and failure handling.
 
 The processor supports:
 
-- Maximum of 3 processing attempts.
-- Failed images are automatically retried.
-- Exponential backoff between attempts:
-  - 1st failure → retry after 1 minute
-  - 2nd failure → retry after 2 minutes
-- After the maximum attempts are reached, the image remains `failed`.
-- Gemini rate-limit errors such as HTTP 429 are handled by the retry mechanism.
+- Maximum of 3 retry attempts for normal processing failures.
+- Exponential backoff for retryable failures.
+- Temporary Gemini HTTP 503/high-demand and short-term 429 errors are rescheduled without immediately consuming a retry attempt.
+- Daily quota errors are marked as failed and are not automatically retried.
+- Images that reach the maximum retry count remain in `failed` status.
 - New images remain `pending` until picked up by the scheduled processor.
+- Permanent failures such as invalid image URLs are recorded for diagnosis.
 
 This prevents temporary AI/API failures from permanently failing image processing.
 
@@ -147,7 +217,7 @@ The project includes a scheduled processing job that can automatically process p
 
 ### 7. AI Cost Tracking
 
-AI operations are logged in the `ai_cost_logs` table.
+AI operations are recorded in the `ai_cost_logs` table.
 
 Tracked operations include:
 
@@ -155,8 +225,9 @@ Tracked operations include:
 - `image_embedding`
 - `image_vision`
 
-Each log records the model, resource ID, estimated cost, and timestamp.
+Each log records the operation, model, resource ID, estimated cost, and timestamp.
 
+The project also includes a configurable AI budget guard that checks accumulated estimated AI cost before making new AI calls.
 ### 8. Swagger API Documentation
 
 Swagger UI is available locally at:
@@ -301,10 +372,12 @@ Invoke-RestMethod `
 - **JavaScript**
 - **Git & GitHub**
 
-## Project Structure
+## 📁 Project Structure
 
 ```text
 flyrank-capstone-image-relevance/
+│
+├── data/
 │
 ├── src/
 │   ├── config/
@@ -312,18 +385,69 @@ flyrank-capstone-image-relevance/
 │   │   └── swagger.js
 │   │
 │   ├── controllers/
+│   │   ├── image.controller.js
+│   │   ├── post.controller.js
+│   │   ├── review.controller.js
+│   │   └── suggestion.controller.js
+│   │
+│   ├── jobs/
+│   │   └── imageProcessor.job.js
+│   │
 │   ├── routes/
-│   ├── services/
+│   │   ├── images.js
+│   │   ├── posts.js
+│   │   ├── reviews.js
+│   │   └── suggestions.js
+│   │
 │   ├── schemas/
+│   │   ├── image.schema.js
+│   │   ├── post.schema.js
+│   │   ├── review.schema.js
+│   │   └── vision.schema.js
+│   │
+│   ├── services/
+│   │   ├── cost.service.js
+│   │   ├── embedding.service.js
+│   │   ├── image.service.js
+│   │   ├── matching.service.js
+│   │   ├── mismatchGuard.service.js
+│   │   ├── post.service.js
+│   │   ├── review.service.js
+│   │   ├── suggestion.service.js
+│   │   └── vision.service.js
+│   │
+│   ├── utils/
+│   │
 │   └── server.js
+│
+├── scripts/
+│   ├── backfillPostEmbeddings.js
+│   ├── checkDataset.js
+│   ├── diagnoseFailures.js
+│   └── evaluateMatching.js
+│
+├── tests/
+│
+├── migrations/
+│   ├── 001_initial_schema.sql
+│   ├── 002_add_image_retry_count.sql
+│   └── 003_add_image_retry_time.sql
+│
+├── eval/
+│   └── eval-set.json
 │
 ├── docs/
 │   └── swagger.png
 │
+├── .env.example
+├── .gitignore
+├── BUILDLOG.md
+├── DESIGN.md
+├── EVIDENCE.md
+├── capstone.yaml
 ├── package.json
 ├── package-lock.json
 └── README.md
-```
 
 ## Setup
 
