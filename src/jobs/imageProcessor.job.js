@@ -47,10 +47,8 @@ async function processPendingImages() {
         OR (
           status = 'failed'
           AND retry_count < $1
-          AND (
-            next_retry_at IS NULL
-            OR next_retry_at <= NOW()
-          )
+          AND next_retry_at IS NOT NULL
+          AND next_retry_at <= NOW()
         )
       ORDER BY created_at ASC
       LIMIT 5
@@ -226,14 +224,12 @@ async function processPendingImages() {
 
 function startImageProcessorJob() {
   cron.schedule("*/1 * * * *", async () => {
-    console.log("🔄 Running image processor job...");
+    console.log("Running image processor job...");
 
     await processPendingImages();
   });
 
-  console.log(
-    "✅ Image processor job scheduled (every 1 minute)"
-  );
+  console.log("Image processor job scheduled (every 1 minute)");
 }
 
 module.exports = {
