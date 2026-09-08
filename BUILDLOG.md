@@ -393,19 +393,54 @@ The capstone evaluation requires:
 
 The evaluation-post requirement is already covered by the 12-case evaluation set.
 
-The remaining dataset requirement must be verified after enough images have completed the Vision + embedding pipeline across at least four categories.
+The dataset requirement has now been verified: 43 images completed the Vision + embedding pipeline across 6 distinct AI-generated categories, exceeding the required minimum of 40 images and 4+ categories.
 
 ---
 
-## Next Development Tasks
+### Final Verification
 
-1. Verify current image processing statuses.
-2. Process enough images to reach at least 40 AI-processed images.
-3. Verify at least four distinct AI-generated categories.
-4. Verify AI cost logs for the processed dataset.
-5. Complete `capstone.yaml`.
-6. Review all documentation for consistency.
-7. Run final API and evaluation tests.
-8. Capture final evidence/screenshots.
-9. Perform final Git status check.
-10. Push final capstone state to GitHub.
+The final database verification confirmed:
+
+* **45 image records**
+* **43 successfully AI-processed images**
+* **2 permanent 404 failures**
+* **43 Vision metadata records**
+* **43 image embeddings**
+* **6 distinct AI-generated categories**
+* **12 original evaluation posts**
+* **12 labeled evaluation cases**
+* **100% Top-1 precision (12/12)**
+
+The two permanent failures were caused by unavailable source URLs:
+
+* `castle.jpg` -> HTTP 404
+* `panda.jpg` -> HTTP 404
+
+Both reached the configured maximum retry count and were left as permanent failures rather than being retried indefinitely.
+
+The capstone requirement of at least 40 successfully AI-processed images across 4+ categories is therefore satisfied.
+
+The 12-case labeled evaluation set also satisfies the requirement for at least 10 labeled evaluation posts.
+
+### Final Project State
+
+The following major requirements have been implemented and verified:
+
+1. Image ingestion and CRUD APIs
+2. Gemini Vision image analysis
+3. Zod metadata validation
+4. Image embeddings
+5. Post embeddings
+6. Semantic similarity matching
+7. Subject/category mismatch guard
+8. `NO_CONFIDENT_MATCH` handling
+9. Human review workflow
+10. Background image processing
+11. Retry and exponential backoff
+12. Permanent failure handling
+13. AI cost logging
+14. AI budget guard
+15. Swagger/OpenAPI documentation
+16. Matching evaluation artifacts
+
+The project is ready for final repository cleanup, commit, and GitHub submission.

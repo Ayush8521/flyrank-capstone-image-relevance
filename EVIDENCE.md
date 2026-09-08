@@ -589,20 +589,15 @@ The modified files passed these checks.
 
 ---
 
-## 22. Remaining Evaluation Requirement
+## 22. Final Evaluation Requirement
 
-The capstone evaluation requires at least:
+The final evaluation dataset contains:
 
-```text
-40 images
-4+ categories
-10+ labeled evaluation posts
-```
+- **45 image records**
+- **43 successfully AI-processed images**
+- **6 AI-generated categories**
+- **12 labeled evaluation posts**
+- **12/12 correct Top-1 matches**
+- **Top-1 Precision: 100.00%**
 
-The current database contains 45 image records and 12 original evaluation posts.
-
-However, not all 45 images have completed AI metadata and embeddings yet.
-
-Therefore, the final evidence should only claim the full `40 images / 4+ categories` requirement after the remaining images have successfully completed AI processing and their categories have been verified.
-
-This section will be updated after the final dataset preparation.
+Two image records (`castle.jpg` and `panda.jpg`) were permanently failed because their source URLs returned HTTP 404. They reached the configured retry limit and do not affect the labeled matching evaluation.

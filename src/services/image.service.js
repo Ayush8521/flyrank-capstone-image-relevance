@@ -1,7 +1,10 @@
 const pool = require("../config/db");
 const { analyzeImage } = require("./vision.service");
 const { generateEmbedding } = require("./embedding.service");
-const { logAICost } = require("./cost.service");
+const {
+  logAICost,
+  checkAIBudget,
+} = require("./cost.service");
 
 async function processImage(imageId) {
   // Get image
@@ -24,8 +27,9 @@ async function processImage(imageId) {
   await pool.query(
     `
     UPDATE images
-    SET status = 'processing',
-        updated_at = NOW()
+    SET
+      status = 'processing',
+      updated_at = NOW()
     WHERE id = $1
     `,
     [imageId]
@@ -35,12 +39,14 @@ async function processImage(imageId) {
     // -----------------------------------------
     // 1. Analyze image using Gemini Vision
     // -----------------------------------------
+    await checkAIBudget();
+
     const visionResult = await analyzeImage(image.image_url);
-  await logAICost({
-    operation: "image_vision",
-    model: "gemini-3.6-flash",
-    resourceId: imageId,
-  });
+    await logAICost({
+      operation: "image_vision",
+      model: "gemini-3.6-flash",
+      resourceId: imageId,
+    });
 
     // -----------------------------------------
     // 2. Decide validation status
@@ -95,22 +101,25 @@ async function processImage(imageId) {
     // 4. Create text representation for embedding
     // -----------------------------------------
     const embeddingText = `
-Subject: ${visionResult.subject}
-Category: ${visionResult.category}
-Description: ${visionResult.description}
-Objects: ${visionResult.objects.join(", ")}
-Attributes: ${visionResult.attributes.join(", ")}
-`.trim();
+      Subject: ${visionResult.subject}
+      Category: ${visionResult.category}
+      Description: ${visionResult.description}
+      Objects: ${visionResult.objects.join(", ")}
+      Attributes: ${visionResult.attributes.join(", ")}
+      `.trim();
 
     // -----------------------------------------
     // 5. Generate 1536-dimensional embedding
     // -----------------------------------------
-    const embedding = await generateEmbedding(embeddingText);
-  await logAICost({
-   operation: "image_embedding",
-   model: "gemini-embedding-001",
-   resourceId: imageId,
-  });
+    await checkAIBudget();
+
+     const embedding = await generateEmbedding(embeddingText);
+
+    await logAICost({
+      operation: "image_embedding",
+      model: "gemini-embedding-001",
+      resourceId: imageId,
+    });
 
     // Convert JS array to pgvector format
     const vectorString = `[${embedding.join(",")}]`;
@@ -143,11 +152,15 @@ Attributes: ${visionResult.attributes.join(", ")}
     // -----------------------------------------
     // 7. Update image status
     // -----------------------------------------
+    // Successful processing resets retry state.
     const updatedImageResult = await pool.query(
       `
       UPDATE images
-      SET status = $1,
-          updated_at = NOW()
+      SET
+        status = $1,
+        retry_count = 0,
+        next_retry_at = NULL,
+        updated_at = NOW()
       WHERE id = $2
       RETURNING *
       `,
@@ -170,18 +183,22 @@ Attributes: ${visionResult.attributes.join(", ")}
     };
 
   } catch (error) {
-    // Let the background processor handle retries
-    // including Gemini rate-limit errors.
-    if (error.message && error.message.includes("Gemini API error: 429")) {
+    // Let the background processor handle Gemini
+    // rate-limit and temporary errors.
+    if (
+    error.message &&
+    error.message.includes("Gemini API error:")
+    ) {
       throw error;
     }
 
-    // Mark other processing errors as failed
+    // Mark other processing errors as failed.
     await pool.query(
       `
       UPDATE images
-      SET status = 'failed',
-          updated_at = NOW()
+      SET
+        status = 'failed',
+        updated_at = NOW()
       WHERE id = $1
       `,
       [imageId]

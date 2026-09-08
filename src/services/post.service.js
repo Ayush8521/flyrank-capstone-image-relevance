@@ -1,6 +1,9 @@
 const pool = require("../config/db");
 const { generateEmbedding } = require("./embedding.service");
-const { logAICost } = require("./cost.service");
+const {
+  logAICost,
+  checkAIBudget,
+} = require("./cost.service");
 
 async function createPost(title, content) {
   // 1. Create post
@@ -16,26 +19,29 @@ async function createPost(title, content) {
   const post = postResult.rows[0];
 
   try {
-    // 2. Create text for embedding
+    // 2. Create text representation for embedding
     const embeddingText = `
 Title: ${post.title}
 Content: ${post.content}
 `.trim();
 
-    // 3. Generate 1536-dimensional embedding
+    // 3. Check AI budget before Gemini call
+    await checkAIBudget();
+
+    // 4. Generate 1536-dimensional embedding
     const embedding = await generateEmbedding(embeddingText);
 
-// 4. Log AI usage
-await logAICost({
-  operation: "post_embedding",
-  model: "gemini-embedding-001",
-  resourceId: post.id,
-});
+    // 5. Log AI usage
+    await logAICost({
+      operation: "post_embedding",
+      model: "gemini-embedding-001",
+      resourceId: post.id,
+    });
 
-    // 4. Convert array to pgvector format
+    // 6. Convert embedding array to pgvector format
     const vectorString = `[${embedding.join(",")}]`;
 
-    // 5. Store embedding
+    // 7. Store embedding
     await pool.query(
       `
       INSERT INTO post_vectors
@@ -58,6 +64,7 @@ await logAICost({
       ]
     );
 
+    // 8. Return post and embedding information
     return {
       post,
       embedding: {
@@ -68,7 +75,8 @@ await logAICost({
     };
 
   } catch (error) {
-    // If embedding fails, remove the post
+    // If embedding or budget check fails,
+    // remove the newly created post.
     await pool.query(
       `
       DELETE FROM posts
@@ -80,7 +88,6 @@ await logAICost({
     throw error;
   }
 }
-
 
 async function getPosts() {
   const result = await pool.query(
@@ -100,7 +107,6 @@ async function getPosts() {
 
   return result.rows;
 }
-
 
 module.exports = {
   createPost,
