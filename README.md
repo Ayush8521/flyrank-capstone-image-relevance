@@ -24,7 +24,6 @@ The application:
 ```text
 ## Architecture
 
-```text
                          ┌──────────────────────┐
                          │     Client / API     │
                          └──────────┬───────────┘
