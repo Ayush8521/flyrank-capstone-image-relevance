@@ -580,7 +580,7 @@ src/config/swagger.js
 Repository:
 
 ```text
-https://github.com/Ayush8521/flyrank-capstone-image-relevance
+https://github.com/Ayush8521/AI-Image-Relevance-Engine
 ```
 
 ## Project Status
