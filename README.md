@@ -453,8 +453,8 @@ flyrank-capstone-image-relevance/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Ayush8521/flyrank-capstone-image-relevance.git
-cd flyrank-capstone-image-relevance
+git clone https://github.com/Ayush8521/AI-Image-Relevance-Engine.git
+cd AI-Image-Relevance-Engine
 ```
 
 ### 2. Install dependencies
